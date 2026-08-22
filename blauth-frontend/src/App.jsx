@@ -1,13 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-function Home() {
-  return (
-    <div>
-      <h1>BLAuth</h1>
-      <p>Prove who you are. Share only what you choose.</p>
-    </div>
-  );
-}
+import Home from "./pages/Home";
+import "./App.css";
 
 function Register() {
   return <h1>Register</h1>;
