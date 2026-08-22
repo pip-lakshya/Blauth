@@ -1,15 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getWallet } from "../services/api";
 
-function readIdentity() {
-  try {
-    const storedIdentity = localStorage.getItem("blauthIdentity");
-    return storedIdentity ? JSON.parse(storedIdentity) : null;
-  } catch (error) {
-    console.error("Unable to read the local identity wallet:", error);
-    return null;
-  }
-}
+const WALLET_ID_KEY = "blauthWalletId";
 
 function maskPhone(phone) {
   const visibleDigits = phone.replace(/\D/g, "").slice(-4);
@@ -17,11 +10,37 @@ function maskPhone(phone) {
 }
 
 function Wallet() {
-  const [identity] = useState(readIdentity);
+  const [walletId] = useState(() => localStorage.getItem(WALLET_ID_KEY));
+  const [identity, setIdentity] = useState(null);
+  const [walletState, setWalletState] = useState(() => (walletId ? "loading" : "missing"));
+  const [walletError, setWalletError] = useState("");
   const [showDob, setShowDob] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
 
-  if (!identity) {
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!walletId) {
+      return undefined;
+    }
+
+    getWallet(walletId)
+      .then(({ credentials }) => {
+        if (!isCurrent) return;
+        setIdentity(credentials);
+        setWalletState("ready");
+      })
+      .catch((error) => {
+        console.error("Unable to load the backend identity wallet:", error);
+        if (!isCurrent) return;
+        setWalletError(error.message || "The backend wallet could not be loaded.");
+        setWalletState("error");
+      });
+
+    return () => { isCurrent = false; };
+  }, [walletId]);
+
+  if (walletState !== "ready" || !identity) {
     return (
       <main className="blauth-wallet">
         <nav className="blauth-register-nav" aria-label="Wallet navigation">
@@ -31,8 +50,8 @@ function Wallet() {
         <section className="blauth-wallet-empty" aria-labelledby="wallet-empty-title">
           <span className="blauth-wallet-empty-mark" aria-hidden="true">B</span>
           <p className="blauth-eyebrow"><span /> Your private wallet</p>
-          <h1 id="wallet-empty-title">No identity<br /><em>registered yet.</em></h1>
-          <p>Create your local identity first, then return here to view the details you control.</p>
+          <h1 id="wallet-empty-title">{walletState === "loading" ? <>Loading your<br /><em>identity.</em></> : <>No backend<br /><em>wallet found.</em></>}</h1>
+          <p>{walletState === "loading" ? "Retrieving your identity wallet." : walletState === "error" ? walletError : "Complete local face verification to register your backend wallet."}</p>
           <Link className="blauth-button blauth-button-primary" to="/register">Create Identity <span>→</span></Link>
         </section>
       </main>
@@ -69,7 +88,7 @@ function Wallet() {
           <div className="blauth-wallet-details" aria-label="Registered identity details">
             {fields.map((field) => <div className="blauth-wallet-field" key={field.label}><span>{field.label}</span><div><strong>{field.value || "Not provided"}</strong>{field.toggle && <button type="button" onClick={field.toggle}>{field.shown ? "Hide" : "Show"}</button>}</div></div>)}
           </div>
-          <footer className="blauth-wallet-footer"><span aria-hidden="true">⌁</span><p>Your identity details are stored locally on this device.</p></footer>
+          <footer className="blauth-wallet-footer"><span aria-hidden="true">⌁</span><p>Your identity details are loaded from your BLAuth wallet.</p></footer>
           <div className="blauth-wallet-consent-link"><Link to="/consent">Review a sharing request <span>→</span></Link></div>
           <div className="blauth-wallet-history-link"><Link to="/history">View disclosure history <span>→</span></Link></div>
         </article>

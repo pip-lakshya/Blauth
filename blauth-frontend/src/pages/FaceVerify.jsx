@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { compareFaceDescriptors, getFaceDescriptor, loadFaceModels } from "../services/faceRecognition";
+import { registerIdentity } from "../services/api";
+
+const WALLET_ID_KEY = "blauthWalletId";
 
 function getCameraFailure(error) {
   if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
@@ -24,6 +27,7 @@ function FaceVerify() {
   const [modelsError, setModelsError] = useState("");
   const [verificationState, setVerificationState] = useState("idle");
   const [verificationError, setVerificationError] = useState("");
+  const [backendStatus, setBackendStatus] = useState("");
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -74,8 +78,9 @@ function FaceVerify() {
 
   useEffect(() => {
     mountedRef.current = true;
-    startCamera();
+    const cameraStartTimeout = window.setTimeout(startCamera, 0);
     return () => {
+      window.clearTimeout(cameraStartTimeout);
       mountedRef.current = false;
       requestIdRef.current += 1;
       streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -109,8 +114,31 @@ function FaceVerify() {
       const referenceDescriptor = JSON.parse(savedDescriptor);
       const { isMatch } = compareFaceDescriptors(referenceDescriptor, currentDescriptor);
       if (!mountedRef.current) return;
-      if (isMatch) setVerificationState("verified");
-      else {
+      if (isMatch) {
+        setVerificationState("verified");
+
+        try {
+          const savedIdentity = localStorage.getItem("blauthIdentity");
+          const identity = savedIdentity ? JSON.parse(savedIdentity) : null;
+          if (!identity) throw new Error("Local identity details are unavailable for backend registration.");
+
+          const { walletId } = await registerIdentity({
+            verified: true,
+            credentials: {
+              name: identity.name,
+              studentId: identity.studentId,
+              email: identity.email,
+              phone: identity.phone,
+              dob: identity.dob,
+            },
+          });
+          localStorage.setItem(WALLET_ID_KEY, walletId);
+          if (mountedRef.current) setBackendStatus("Backend wallet registered successfully.");
+        } catch (error) {
+          console.error("Backend identity registration failed:", error);
+          if (mountedRef.current) setBackendStatus(`Backend registration unavailable: ${error.message}. Your local identity remains available.`);
+        }
+      } else {
         setVerificationState("failed");
         setVerificationError("The captured face does not match your enrolled local identity. Please try again.");
       }
@@ -159,7 +187,9 @@ function FaceVerify() {
           <div className="blauth-verify-content">
             <aside className="blauth-privacy-notice"><span aria-hidden="true">⌁</span><p><strong>Your biometric data never leaves this device.</strong> The camera frame is only used for this local demo check.</p></aside>
             {verificationState === "verified" ? (
+              <><p className="blauth-enrollment-message" role="status">{backendStatus || "Registering your backend wallet…"}</p>
               <div className="blauth-register-actions"><button className="blauth-back-button" type="button" onClick={() => navigate("/register")}>← Back</button><button className="blauth-continue-button" type="button" onClick={() => navigate("/wallet")}>Continue to Wallet <span>→</span></button></div>
+              </>
             ) : (
               <div className="blauth-register-actions"><button className="blauth-back-button" type="button" onClick={() => navigate("/register")}>← Back</button><button className="blauth-continue-button" type="button" disabled={!canCapture} onClick={captureFace}>{verificationState === "checking" ? "Verifying…" : "Capture Face"} <span>→</span></button></div>
             )}

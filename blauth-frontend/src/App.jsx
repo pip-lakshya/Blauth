@@ -6,6 +6,7 @@ import FaceVerify from "./pages/FaceVerify";
 import Wallet from "./pages/Wallet";
 import Consent from "./pages/Consent";
 import VerifierAge from "./pages/VerifierAge";
+import VerifierCollege from "./pages/VerifierCollege";
 import DisclosureHistory from "./pages/DisclosureHistory";
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/consent" element={<Consent />} />
         <Route path="/verifier/age" element={<VerifierAge />} />
+        <Route path="/verifier/college" element={<VerifierCollege />} />
         <Route path="/verify-age" element={<VerifierAge />} />
         <Route path="/history" element={<DisclosureHistory />} />
       </Routes>

@@ -5,6 +5,9 @@ const { validateConsent, validateVerificationRequest } = require('../utils/valid
 const { getVerificationRequestStore } = require('./verificationRequestStore');
 const { getWalletStore } = require('./walletStore');
 
+const AGE_WITHHELD_FIELDS = ['dob', 'name', 'email', 'phone', 'studentId'];
+const COLLEGE_WITHHELD_FIELDS = ['email', 'dob', 'phone'];
+
 async function createVerificationRequest(payload) {
   const requestDetails = validateVerificationRequest(payload);
   const wallet = await getWalletStore().findByWalletId(requestDetails.walletId);
@@ -53,9 +56,22 @@ async function processConsent(payload) {
   const disclosedFields = verificationRequest.requestedFields.filter(
     (field) => approvedFieldSet.has(field),
   );
-  const withheldFields = verificationRequest.requestedFields.filter(
+  let withheldFields = verificationRequest.requestedFields.filter(
     (field) => !disclosedFields.includes(field),
   );
+  const isAgeVerification = verificationRequest.verifierId === 'age-restricted-service'
+    && verificationRequest.requestedFields.length === 1
+    && verificationRequest.requestedFields[0] === 'ageOver18';
+  if (isAgeVerification) {
+    withheldFields = AGE_WITHHELD_FIELDS;
+  }
+  const isCollegeVerification = verificationRequest.verifierId === 'college-portal'
+    && verificationRequest.requestedFields.length === 2
+    && verificationRequest.requestedFields.includes('name')
+    && verificationRequest.requestedFields.includes('studentId');
+  if (isCollegeVerification) {
+    withheldFields = [...new Set([...withheldFields, ...COLLEGE_WITHHELD_FIELDS])];
+  }
   const outcome = disclosedFields.length > 0 ? 'APPROVED' : 'DENIED';
   const { v4: createUuid } = await import('uuid');
   const disclosureHistoryEntry = createDisclosureHistoryEntry({
