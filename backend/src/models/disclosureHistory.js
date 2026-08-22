@@ -11,10 +11,12 @@ function createDisclosureHistoryEntry({
   return {
     disclosureId,
     requestId,
+    verifier: verifierId,
     verifierId,
     timestamp: new Date().toISOString(),
     requestedFields,
     approvedFields,
+    sharedFields: disclosedFields,
     disclosedFields,
     withheldFields,
     outcome,

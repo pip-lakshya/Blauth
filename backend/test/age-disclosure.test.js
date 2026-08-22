@@ -55,7 +55,19 @@ async function withServer(run) {
     });
   }
 
-  async function createVerificationRequest(dob, requestedFields) {
+  async function get(endpoint) {
+    return new Promise((resolve, reject) => {
+      http.get(`http://127.0.0.1:${port}${endpoint}`, (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => resolve({ status: response.statusCode, body: JSON.parse(responseBody) }));
+      }).on('error', reject);
+    });
+  }
+
+  async function createVerificationRequest(dob, requestedFields, verifierId = 'college-portal') {
     const registration = await request('/identity/register', {
       verified: true,
       credentials: createCredentials(dob),
@@ -63,7 +75,7 @@ async function withServer(run) {
     assert.equal(registration.status, 201);
     const verification = await request('/verify/request', {
       walletId: registration.body.walletId,
-      verifierId: 'college-portal',
+      verifierId,
       requestedFields,
     });
     assert.equal(verification.status, 201);
@@ -71,7 +83,7 @@ async function withServer(run) {
   }
 
   try {
-    await run({ createVerificationRequest, request, walletFile });
+    await run({ createVerificationRequest, get, request, walletFile });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     delete process.env.WALLET_DATA_FILE;
@@ -130,6 +142,25 @@ test('age disclosure history records the field name but not raw DOB', async () =
     assert.deepEqual(history.approvedFields, ['ageOver18']);
     assert.deepEqual(history.disclosedFields, ['ageOver18']);
     assert.equal(JSON.stringify(history).includes(dob), false);
+  });
+});
+
+test('an age disclosure history response includes only ageOver18 and withheld identity fields', async () => {
+  await withServer(async ({ createVerificationRequest, get, request, walletFile }) => {
+    const dob = '2012-04-15';
+    const { requestId, walletId } = await createVerificationRequest(dob, ['ageOver18'], 'age-restricted-service');
+    await request('/verify/consent', { requestId, approvedFields: ['ageOver18'] });
+    const wallets = JSON.parse(await fs.readFile(walletFile, 'utf8'));
+    const history = wallets[0].disclosureHistory[0];
+    const response = await get(`/identity/${walletId}/disclosures`);
+
+    assert.deepEqual(history.sharedFields, ['ageOver18']);
+    assert.deepEqual(history.withheldFields, ['dob', 'name', 'email', 'phone', 'studentId']);
+    assert.equal(JSON.stringify(history).includes(dob), false);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.disclosures[0].sharedFields, ['ageOver18']);
+    assert.deepEqual(response.body.disclosures[0].withheldFields, ['dob', 'name', 'email', 'phone', 'studentId']);
+    assert.equal(JSON.stringify(response.body).includes(dob), false);
   });
 });
 

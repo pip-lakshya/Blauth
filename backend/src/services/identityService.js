@@ -14,4 +14,27 @@ async function registerWallet(payload) {
   return wallet;
 }
 
-module.exports = { registerWallet };
+async function getWallet(walletId) {
+  const wallet = await getWalletStore().findByWalletId(walletId);
+  if (!wallet) {
+    const error = new Error('walletId does not exist.');
+    error.status = 404;
+    throw error;
+  }
+
+  return wallet;
+}
+
+async function getDisclosureHistory(walletId) {
+  const wallet = await getWallet(walletId);
+
+  return wallet.disclosureHistory.map((record) => ({
+    verifier: record.verifier || record.verifierId,
+    sharedFields: record.sharedFields || record.disclosedFields || [],
+    withheldFields: record.withheldFields || [],
+    timestamp: record.timestamp,
+    ...(record.requestId ? { requestId: record.requestId } : {}),
+  }));
+}
+
+module.exports = { registerWallet, getWallet, getDisclosureHistory };

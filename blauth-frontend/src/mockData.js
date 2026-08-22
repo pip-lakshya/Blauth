@@ -1,13 +1,16 @@
 export const verifierRequests = {
   "college-portal": {
+    verifierId: "college-portal",
     verifier: "College Portal",
     purpose: "Confirm your student account details for campus access.",
-    requestedFields: ["name", "studentId", "email"],
+    requestedFields: ["name", "studentId"],
+    withheldFields: ["email", "dob", "phone"],
   },
   "student-services": {
+    verifierId: "student-services",
     verifier: "Student Services",
     purpose: "Confirm the details needed to support your student request.",
-    requestedFields: ["name", "college", "studentId", "phone"],
+    requestedFields: ["name", "studentId", "phone"],
   },
 };
 

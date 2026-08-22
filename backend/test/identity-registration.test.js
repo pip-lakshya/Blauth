@@ -50,8 +50,20 @@ async function withServer(run) {
     });
   }
 
+  async function get(pathname) {
+    return new Promise((resolve, reject) => {
+      http.get(`http://127.0.0.1:${port}${pathname}`, (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => resolve({ status: response.statusCode, body: JSON.parse(responseBody) }));
+      }).on('error', reject);
+    });
+  }
+
   try {
-    await run({ request, dataFile: process.env.WALLET_DATA_FILE });
+    await run({ request, get, dataFile: process.env.WALLET_DATA_FILE });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     delete process.env.WALLET_DATA_FILE;
@@ -87,6 +99,27 @@ test('successful registration persists the complete wallet record', async () => 
       disclosureHistory: [],
     });
     assert.equal(new Date(wallets[0].createdAt).toISOString(), wallets[0].createdAt);
+  });
+});
+
+test('GET /identity/:walletId returns only the requested wallet credentials', async () => {
+  await withServer(async ({ get, request }) => {
+    const registration = await request(registrationPayload());
+    const response = await get(`/identity/${registration.body.walletId}`);
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, {
+      walletId: registration.body.walletId,
+      credentials: validCredentials,
+    });
+  });
+});
+
+test('GET /identity/:walletId returns 404 for an unknown wallet', async () => {
+  await withServer(async ({ get }) => {
+    const response = await get('/identity/wallet_unknown');
+
+    assert.equal(response.status, 404);
   });
 });
 

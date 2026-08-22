@@ -53,6 +53,18 @@ async function withServer(run) {
     });
   }
 
+  async function get(endpoint) {
+    return new Promise((resolve, reject) => {
+      http.get(`http://127.0.0.1:${port}${endpoint}`, (response) => {
+        let responseBody = '';
+        response.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+        response.on('end', () => resolve({ status: response.statusCode, body: JSON.parse(responseBody) }));
+      }).on('error', reject);
+    });
+  }
+
   async function createVerificationRequest(requestedFields) {
     const registration = await request('/identity/register', { verified: true, credentials });
     assert.equal(registration.status, 201);
@@ -66,7 +78,7 @@ async function withServer(run) {
   }
 
   try {
-    await run({ createVerificationRequest, request, requestFile, walletFile });
+    await run({ createVerificationRequest, get, request, requestFile, walletFile });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     delete process.env.WALLET_DATA_FILE;
@@ -197,6 +209,50 @@ test('completed consent creates disclosure history', async () => {
     assert.equal(wallets[0].walletId, walletId);
     assert.equal(wallets[0].disclosureHistory.length, 1);
     assert.equal(wallets[0].disclosureHistory[0].requestId, requestId);
+  });
+});
+
+test('college portal shares only name and studentId and records all protected fields as withheld', async () => {
+  await withServer(async ({ createVerificationRequest, get, request }) => {
+    const { requestId, walletId } = await createVerificationRequest(['name', 'studentId']);
+    const response = await request('/verify/consent', consentPayload(requestId, ['name', 'studentId']));
+    const history = await get(`/identity/${walletId}/disclosures`);
+
+    assert.deepEqual(response.body, {
+      verified: true,
+      data: { name: 'Lucky', studentId: '24CE1032' },
+    });
+    assert.equal('email' in response.body.data, false);
+    assert.equal('dob' in response.body.data, false);
+    assert.equal('phone' in response.body.data, false);
+    assert.deepEqual(history.body.disclosures[0].sharedFields, ['name', 'studentId']);
+    assert.deepEqual(history.body.disclosures[0].withheldFields, ['email', 'dob', 'phone']);
+    assert.equal(JSON.stringify(history.body).includes(credentials.dob), false);
+  });
+});
+
+test('GET /identity/:walletId/disclosures returns a privacy-safe history record', async () => {
+  await withServer(async ({ createVerificationRequest, get, request }) => {
+    const { requestId, walletId } = await createVerificationRequest(['name', 'studentId']);
+    await request('/verify/consent', consentPayload(requestId, ['name']));
+    const response = await get(`/identity/${walletId}/disclosures`);
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.disclosures, [{
+      verifier: 'college-portal',
+      sharedFields: ['name'],
+      withheldFields: ['studentId', 'email', 'dob', 'phone'],
+      timestamp: response.body.disclosures[0].timestamp,
+      requestId,
+    }]);
+    assert.equal(JSON.stringify(response.body).includes(credentials.name), false);
+    assert.equal(JSON.stringify(response.body).includes(credentials.dob), false);
+  });
+});
+
+test('GET /identity/:walletId/disclosures returns 404 for an unknown wallet', async () => {
+  await withServer(async ({ get }) => {
+    assert.equal((await get('/identity/wallet_unknown/disclosures')).status, 404);
   });
 });
 
