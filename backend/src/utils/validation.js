@@ -140,4 +140,37 @@ function validateVerificationRequest(payload) {
   };
 }
 
-module.exports = { ValidationError, validateRegistration, validateVerificationRequest };
+function validateConsent(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new ValidationError('Request body must be a JSON object.');
+  }
+  if (typeof payload.requestId !== 'string' || payload.requestId.trim() === '') {
+    throw new ValidationError('requestId is required.');
+  }
+  if (!hasOwn(payload, 'approvedFields')) {
+    throw new ValidationError('approvedFields is required.');
+  }
+  if (!Array.isArray(payload.approvedFields)) {
+    throw new ValidationError('approvedFields must be an array.');
+  }
+
+  const approvedFields = payload.approvedFields.map((field) => {
+    if (typeof field !== 'string' || !supportedVerificationFields.has(field)) {
+      throw new ValidationError('approvedFields contains an unsupported field.');
+    }
+    return field;
+  });
+
+  if (new Set(approvedFields).size !== approvedFields.length) {
+    throw new ValidationError('approvedFields must not contain duplicates.');
+  }
+
+  return { requestId: payload.requestId.trim(), approvedFields };
+}
+
+module.exports = {
+  ValidationError,
+  validateRegistration,
+  validateVerificationRequest,
+  validateConsent,
+};

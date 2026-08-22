@@ -34,6 +34,23 @@ class WalletStore {
     const wallets = await this.readWallets();
 
     wallets.push(wallet);
+    await this.writeWallets(wallets);
+  }
+
+  async update(wallet) {
+    const wallets = await this.readWallets();
+    const walletIndex = wallets.findIndex((storedWallet) => storedWallet.walletId === wallet.walletId);
+
+    if (walletIndex === -1) {
+      throw new Error('Wallet does not exist.');
+    }
+
+    wallets[walletIndex] = wallet;
+    await this.writeWallets(wallets);
+  }
+
+  async writeWallets(wallets) {
+    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     await fs.writeFile(this.filePath, JSON.stringify(wallets, null, 2), 'utf8');
   }
 }

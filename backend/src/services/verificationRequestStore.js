@@ -6,9 +6,7 @@ class VerificationRequestStore {
     this.filePath = filePath;
   }
 
-  async save(verificationRequest) {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-
+  async readRequests() {
     let requests = [];
     try {
       const contents = await fs.readFile(this.filePath, 'utf8');
@@ -23,7 +21,35 @@ class VerificationRequestStore {
       throw new Error('Verification request data store is invalid.');
     }
 
+    return requests;
+  }
+
+  async findByRequestId(requestId) {
+    const requests = await this.readRequests();
+    return requests.find((request) => request.requestId === requestId) || null;
+  }
+
+  async save(verificationRequest) {
+    const requests = await this.readRequests();
+
     requests.push(verificationRequest);
+    await this.writeRequests(requests);
+  }
+
+  async update(verificationRequest) {
+    const requests = await this.readRequests();
+    const requestIndex = requests.findIndex((request) => request.requestId === verificationRequest.requestId);
+
+    if (requestIndex === -1) {
+      throw new Error('Verification request does not exist.');
+    }
+
+    requests[requestIndex] = verificationRequest;
+    await this.writeRequests(requests);
+  }
+
+  async writeRequests(requests) {
+    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     await fs.writeFile(this.filePath, JSON.stringify(requests, null, 2), 'utf8');
   }
 }
