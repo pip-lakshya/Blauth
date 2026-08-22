@@ -8,6 +8,7 @@ class ValidationError extends Error {
 
 const allowedRequestFields = new Set(['verified', 'credentials']);
 const allowedCredentialFields = new Set(['name', 'studentId', 'email', 'phone', 'dob']);
+const supportedVerificationFields = new Set(['name', 'studentId', 'email', 'phone', 'dob', 'ageOver18']);
 
 function hasOwn(object, property) {
   return Object.prototype.hasOwnProperty.call(object, property);
@@ -100,4 +101,43 @@ function validateRegistration(payload) {
   return credentials;
 }
 
-module.exports = { ValidationError, validateRegistration };
+function validateVerificationRequest(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new ValidationError('Request body must be a JSON object.');
+  }
+
+  if (typeof payload.walletId !== 'string' || payload.walletId.trim() === '') {
+    throw new ValidationError('walletId is required.');
+  }
+  if (typeof payload.verifierId !== 'string' || payload.verifierId.trim() === '') {
+    throw new ValidationError('verifierId must be a non-empty string.');
+  }
+  if (!hasOwn(payload, 'requestedFields')) {
+    throw new ValidationError('requestedFields is required.');
+  }
+  if (!Array.isArray(payload.requestedFields)) {
+    throw new ValidationError('requestedFields must be an array.');
+  }
+  if (payload.requestedFields.length === 0) {
+    throw new ValidationError('requestedFields must not be empty.');
+  }
+
+  const requestedFields = payload.requestedFields.map((field) => {
+    if (typeof field !== 'string' || !supportedVerificationFields.has(field)) {
+      throw new ValidationError('requestedFields contains an unsupported field.');
+    }
+    return field;
+  });
+
+  if (new Set(requestedFields).size !== requestedFields.length) {
+    throw new ValidationError('requestedFields must not contain duplicates.');
+  }
+
+  return {
+    walletId: payload.walletId.trim(),
+    verifierId: payload.verifierId.trim(),
+    requestedFields,
+  };
+}
+
+module.exports = { ValidationError, validateRegistration, validateVerificationRequest };

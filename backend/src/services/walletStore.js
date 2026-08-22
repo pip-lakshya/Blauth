@@ -6,9 +6,7 @@ class WalletStore {
     this.filePath = filePath;
   }
 
-  async save(wallet) {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-
+  async readWallets() {
     let wallets = [];
     try {
       const contents = await fs.readFile(this.filePath, 'utf8');
@@ -22,6 +20,18 @@ class WalletStore {
     if (!Array.isArray(wallets)) {
       throw new Error('Wallet data store is invalid.');
     }
+
+    return wallets;
+  }
+
+  async findByWalletId(walletId) {
+    const wallets = await this.readWallets();
+    return wallets.find((wallet) => wallet.walletId === walletId) || null;
+  }
+
+  async save(wallet) {
+    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+    const wallets = await this.readWallets();
 
     wallets.push(wallet);
     await fs.writeFile(this.filePath, JSON.stringify(wallets, null, 2), 'utf8');

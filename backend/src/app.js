@@ -2,6 +2,7 @@ const cors = require('cors');
 const express = require('express');
 
 const identityRoutes = require('./routes/identityRoutes');
+const verificationRoutes = require('./routes/verificationRoutes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/identity', identityRoutes);
+app.use('/verify', verificationRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
