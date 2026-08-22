@@ -1,10 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import "./App.css";
-
-function Register() {
-  return <h1>Register</h1>;
-}
+import Register from "./pages/Register";
 
 function FaceVerify() {
   return <h1>Face Verification</h1>;
