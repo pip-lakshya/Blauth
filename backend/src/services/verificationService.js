@@ -1,5 +1,6 @@
 const { createVerificationRequest: createVerificationRequestRecord } = require('../models/verificationRequest');
 const { createDisclosureHistoryEntry } = require('../models/disclosureHistory');
+const { isAgeOver18 } = require('../utils/age');
 const { validateConsent, validateVerificationRequest } = require('../utils/validation');
 const { getVerificationRequestStore } = require('./verificationRequestStore');
 const { getWalletStore } = require('./walletStore');
@@ -70,7 +71,9 @@ async function processConsent(payload) {
 
   const data = {};
   for (const field of disclosedFields) {
-    data[field] = wallet.credentials[field];
+    data[field] = field === 'ageOver18'
+      ? isAgeOver18(wallet.credentials.dob)
+      : wallet.credentials[field];
   }
 
   wallet.disclosureHistory.push(disclosureHistoryEntry);
