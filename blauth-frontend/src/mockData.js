@@ -12,6 +12,12 @@ export const verifierRequests = {
     purpose: "Confirm the details needed to support your student request.",
     requestedFields: ["name", "studentId", "phone"],
   },
+  "age-restricted-service": {
+    verifierId: "age-restricted-service",
+    verifier: "Age Restricted Service",
+    purpose: "Confirm whether the user is over 18 without sharing their date of birth.",
+    requestedFields: ["ageOver18"],
+  },
 };
 
 export const identityFieldLabels = {
@@ -21,4 +27,5 @@ export const identityFieldLabels = {
   studentId: "Student ID",
   dob: "Date of Birth",
   phone: "Phone",
+  ageOver18: "Age Over 18",
 };
