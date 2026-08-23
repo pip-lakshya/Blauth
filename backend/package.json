@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "compile:contract": "hardhat compile",
+    "deploy:amoy": "node scripts/deploy-credential-registry.js"
   },
   "keywords": [],
   "author": "",
@@ -15,10 +17,12 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "ethers": "^6.13.5",
     "express": "^5.2.1",
     "uuid": "^14.0.2"
   },
   "devDependencies": {
+    "hardhat": "^2.22.18",
     "nodemon": "^3.1.14"
   }
 }

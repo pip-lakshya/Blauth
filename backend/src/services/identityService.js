@@ -1,4 +1,5 @@
 const { createWallet } = require('../models/wallet');
+const { registerCredentialOnChain } = require('./blockchainCredentialService');
 const { validateRegistration } = require('../utils/validation');
 const { getWalletStore } = require('./walletStore');
 
@@ -10,8 +11,9 @@ async function registerWallet(payload) {
     credentials,
   });
 
+  const blockchainProof = await registerCredentialOnChain(credentials);
   await getWalletStore().save(wallet);
-  return wallet;
+  return { wallet, blockchainProof };
 }
 
 async function getWallet(walletId) {
