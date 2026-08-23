@@ -1,4 +1,6 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+// Production uses the same origin through a reverse proxy. Set VITE_API_BASE_URL
+// only when the API is intentionally deployed on a separate origin.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
 function getErrorMessage(responseBody, status) {
   if (responseBody && typeof responseBody === "object") {

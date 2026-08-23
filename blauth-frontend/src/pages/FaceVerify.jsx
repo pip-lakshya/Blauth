@@ -198,7 +198,7 @@ function FaceVerify() {
             {cameraState === "ready" && modelsState === "loading" && <div className="blauth-camera-overlay"><span className="blauth-loader" /><p>Loading local face-recognition models…</p></div>}
             {modelsState === "error" && <div className="blauth-camera-overlay blauth-camera-error"><span>!</span><h2>Models unavailable</h2><p>{modelsError}</p><button type="button" onClick={() => window.location.reload()}>Try again</button></div>}
             {verificationState === "checking" && <div className="blauth-camera-overlay"><span className="blauth-loader" /><p>Checking locally…</p></div>}
-            {verificationState === "failed" && <div className="blauth-camera-overlay blauth-camera-error"><span>!</span><h2>Local verification unsuccessful</h2><p>{verificationError}</p></div>}
+            {verificationState === "failed" && <div className="blauth-camera-overlay blauth-camera-error"><span>!</span><h2>Local verification unsuccessful</h2><p>{verificationError}</p><button type="button" onClick={() => { setVerificationState("idle"); startCamera(); }}>Refresh camera</button></div>}
             {verificationState === "verified" && <div className="blauth-camera-overlay blauth-camera-success"><span>✓</span><h2>Identity verified locally</h2><p>Your camera frame was never uploaded.</p></div>}
           </div>
           <div className="blauth-verify-content">

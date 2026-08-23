@@ -24,6 +24,21 @@ function AuthOverlay() {
     streamRef.current = null;
   }, []);
 
+  async function refreshCamera() {
+    setCameraReady(false);
+    setError("");
+    stopCamera();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      setCameraReady(true);
+    } catch {
+      setError("Camera access is required for BLAuth authentication.");
+    }
+  }
+
   useEffect(() => {
     let active = true;
     loadFaceModels().then(() => active && setModelsReady(true)).catch(() => active && setError("Local biometric models could not be loaded."));
@@ -82,7 +97,7 @@ function AuthOverlay() {
       <section className="blauth-verify-shell">
         <header className="blauth-register-intro"><p className="blauth-eyebrow"><span /> BLAuth-controlled surface</p><h1>Authenticate<br /><em>with BLAuth.</em></h1><p><strong>{request.verifier}</strong> wants to verify your identity. It cannot access biometric data, API credentials, or fields you do not approve.</p></header>
         <article className="blauth-verify-card">
-          {stage === "authenticating" || stage === "checking" ? <><div className="blauth-camera-stage"><video ref={videoRef} className="blauth-camera-video" autoPlay muted playsInline /><div className="blauth-camera-guide" aria-hidden="true"><span /><span /><span /><span /></div></div><p className="blauth-enrollment-message">{stage === "checking" ? "Checking local biometric and Polygon Amoy identity…" : "Authenticate locally before reviewing the request."}</p><button className="blauth-continue-button" type="button" disabled={!cameraReady || !modelsReady || stage === "checking"} onClick={authenticate}>{stage === "checking" ? "Authenticating…" : "Verify with BLAuth"}</button></> : null}
+          {stage === "authenticating" || stage === "checking" ? <><div className="blauth-camera-stage"><video ref={videoRef} className="blauth-camera-video" autoPlay muted playsInline /><div className="blauth-camera-guide" aria-hidden="true"><span /><span /><span /><span /></div></div><p className="blauth-enrollment-message">{stage === "checking" ? "Checking local biometric and Polygon Amoy identity…" : "Authenticate locally before reviewing the request."}</p><div className="blauth-auth-actions"><button className="blauth-camera-refresh" type="button" onClick={refreshCamera} disabled={stage === "checking"} title="Refresh camera" aria-label="Refresh camera">↻</button><button className="blauth-continue-button" type="button" disabled={!cameraReady || !modelsReady || stage === "checking"} onClick={authenticate}>{stage === "checking" ? "Authenticating…" : "Verify with BLAuth"}</button></div></> : null}
           {stage === "consent" || stage === "submitting" ? <><header className="blauth-request-header"><div><p>{request.verifier} wants to verify:</p><h2>Only these fields</h2></div></header><div className="blauth-consent-list">{request.requestedFields.map((field) => <div className="blauth-consent-field" key={field}><span>✓ {fieldLabels[field] || field}</span><strong>Requested</strong></div>)}</div><aside className="blauth-privacy-notice"><p><strong>BLAuth will not share:</strong> date of birth unless requested, phone unless requested, or any biometric data.</p></aside><div className="blauth-consent-actions"><button className="blauth-deny-button" type="button" disabled={stage === "submitting"} onClick={() => completeConsent([])}>Deny</button><button className="blauth-continue-button" type="button" disabled={stage === "submitting"} onClick={() => completeConsent(request.requestedFields)}>{stage === "submitting" ? "Submitting…" : "Approve"}</button></div></> : null}
           {error && <p className="blauth-field-error" role="alert">{error}</p>}
         </article>

@@ -33,6 +33,15 @@ export async function getEnrolledDescriptor() {
   return descriptor;
 }
 
+export async function clearEnrolledDescriptor() {
+  await new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DATABASE_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error("Close other BLAuth tabs before resetting this demo identity."));
+  });
+}
+
 export async function createBiometricCommitment(descriptor) {
   if (!Array.isArray(descriptor) || descriptor.length === 0 || descriptor.some((value) => !Number.isFinite(value))) {
     throw new Error("The local biometric descriptor is invalid.");

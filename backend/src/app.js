@@ -6,8 +6,11 @@ const developerRoutes = require('./routes/developerRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 
 const app = express();
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : null;
 
-app.use(cors());
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 
 app.get('/health', (req, res) => {
