@@ -230,6 +230,28 @@ VITE_API_BASE_URL=
 
 For production, place the frontend and API behind the same public origin/reverse proxy. The frontend then uses relative API paths such as `/identity/register`, rather than a hardcoded development hostname. If the API is deployed separately, set `VITE_API_BASE_URL` to its HTTPS origin and configure `CORS_ORIGIN` accordingly.
 
+### Render + Vercel deployment
+
+This repository includes `render.yaml` for the API and `vercel.json` for React Router SPA fallback. Configure the Render web service from the current branch (or use the blueprint), with `backend` as its root directory. Its health endpoint is `/health` and its start command is `npm start`.
+
+Set these Render environment variables in the Render dashboard:
+
+```env
+CORS_ORIGIN=https://<your-vercel-project>.vercel.app
+BLOCKCHAIN_ENABLED=true
+BLOCKCHAIN_RPC_URL=<POLYGON_AMOY_RPC_URL>
+BLOCKCHAIN_PRIVATE_KEY=<BACKEND_SIGNER_PRIVATE_KEY>
+BLOCKCHAIN_CONTRACT_ADDRESS=<DEPLOYED_CONTRACT_ADDRESS>
+```
+
+Set this Vercel environment variable and redeploy the frontend:
+
+```env
+VITE_API_BASE_URL=https://<your-render-service>.onrender.com
+```
+
+After every backend route change, deploy the current backend revision to Render. A successful `/health` response alone does not prove that `/identity/register` or the other API routes are deployed.
+
 ## Run and verify
 
 ```bash
