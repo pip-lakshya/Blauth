@@ -289,3 +289,5 @@ npm run deploy:amoy
 ```
 
 Do not redeploy an existing configured registry merely to run the application.
+
+Made by mistake with ❤️. 
