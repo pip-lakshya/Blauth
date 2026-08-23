@@ -1,48 +1,60 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { createVerificationRequest } from "../services/api";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { createDeveloperApp, createDeveloperVerificationRequest } from "../services/api";
 
 const WALLET_ID_KEY = "blauthWalletId";
-
 const verifierOptions = {
-  "college-portal": {
-    verifier: "College Portal",
-    requestedFields: ["name", "studentId"],
-    fieldLabels: ["Name", "Student ID"],
-  },
-  "age-restricted-service": {
-    verifier: "Age Restricted Service",
-    requestedFields: ["ageOver18"],
-    fieldLabels: ["Age Over 18"],
-  },
+  "college-portal": { verifier: "College Portal", requestedFields: ["name", "studentId"], fieldLabels: ["Name", "Student ID"] },
+  "age-restricted-service": { verifier: "Age-Restricted Service", requestedFields: ["ageOver18"], fieldLabels: ["Age Over 18"] },
 };
+
+const integrationSnippet = `const result = await BLAuth.authenticate({
+  requestedFields: ["name", "studentId"]
+});`;
 
 function DeveloperDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [walletId] = useState(() => localStorage.getItem(WALLET_ID_KEY));
+  const [developerApp, setDeveloperApp] = useState(null);
+  const [appState, setAppState] = useState("idle");
+  const [appError, setAppError] = useState("");
   const [verifierId, setVerifierId] = useState("college-portal");
   const [requestState, setRequestState] = useState("idle");
   const [requestError, setRequestError] = useState("");
   const [createdRequest, setCreatedRequest] = useState(null);
+  const [verificationResult] = useState(() => location.state?.verificationResult || null);
   const selectedVerifier = verifierOptions[verifierId];
 
-  async function handleCreateRequest() {
-    if (!walletId || requestState === "creating") return;
+  async function handleConnectDeveloperApp() {
+    if (appState === "creating") return;
+    setAppState("creating");
+    setAppError("");
+    try {
+      // The creation response is held only in React memory for this session.
+      setDeveloperApp(await createDeveloperApp({ name: "College Portal" }));
+      setAppState("ready");
+    } catch (error) {
+      setAppError(error.message || "The developer application could not be created.");
+      setAppState("error");
+    }
+  }
 
+  async function handleCreateRequest() {
+    if (!walletId || !developerApp || requestState === "creating") return;
     setRequestState("creating");
     setRequestError("");
     setCreatedRequest(null);
-
     try {
-      const { requestId } = await createVerificationRequest({
+      const { requestId } = await createDeveloperVerificationRequest({
         walletId,
-        verifierId,
         requestedFields: selectedVerifier.requestedFields,
+        apiKey: developerApp.apiKey,
+        apiSecret: developerApp.apiSecret,
       });
       setCreatedRequest({ requestId, ...selectedVerifier });
       setRequestState("created");
     } catch (error) {
-      console.error("Unable to create developer verification request:", error);
       setRequestError(error.message || "The verification request could not be created.");
       setRequestState("error");
     }
@@ -55,23 +67,32 @@ function DeveloperDashboard() {
     setRequestState("idle");
   }
 
+  function openAuthenticationSurface() {
+    navigate(`/authenticate?requestId=${encodeURIComponent(createdRequest.requestId)}`, {
+      state: { request: { verifier: createdRequest.verifier, requestedFields: createdRequest.requestedFields } },
+    });
+  }
+
   return (
     <main className="blauth-consent">
-      <div className="blauth-register-orb blauth-consent-orb-one" /><div className="blauth-register-orb blauth-consent-orb-two" />
-      <nav className="blauth-register-nav" aria-label="Developer dashboard navigation"><Link className="blauth-brand" to="/" aria-label="BLAuth home"><span className="blauth-brand-mark">B</span><span>BLAuth</span></Link><span className="blauth-nav-status"><i /> Verifier tools</span></nav>
-      <section className="blauth-consent-shell" aria-labelledby="developer-title">
-        <header className="blauth-consent-intro"><p className="blauth-eyebrow"><span /> Developer tools</p><h1 id="developer-title">Developer<br /><em>Verification Console.</em></h1><p>Create a privacy-preserving verification request for only the identity attributes your service needs.</p></header>
+      <nav className="blauth-register-nav"><Link className="blauth-brand" to="/"><span className="blauth-brand-mark">B</span><span>BLAuth</span></Link><span className="blauth-nav-status"><i /> Verifier tools</span></nav>
+      <section className="blauth-consent-shell">
+        <header className="blauth-consent-intro"><p className="blauth-eyebrow"><span /> Developer integration</p><h1>BLAuth<br /><em>Developer Console.</em></h1><p>Your website initiates the request. BLAuth owns biometric authentication and user consent.</p></header>
         <article className="blauth-consent-card">
-          <header className="blauth-request-header"><span className="blauth-request-mark">⌁</span><div><p>Verifier request builder</p><h2>Choose a verifier</h2></div></header>
-          <p className="blauth-request-purpose">The user reviews the request in BLAuth before any approved fields are disclosed.</p>
-          <div className="blauth-input-group"><label htmlFor="developer-verifier">Available verifier</label><select id="developer-verifier" value={verifierId} onChange={handleVerifierChange} disabled={requestState === "creating"}>{Object.entries(verifierOptions).map(([id, option]) => <option key={id} value={id}>{option.verifier}</option>)}</select></div>
-          <div className="blauth-consent-list" aria-label="Requested identity fields">{selectedVerifier.fieldLabels.map((field) => <div className="blauth-consent-field" key={field}><span>{field}</span><strong>Requested</strong></div>)}</div>
-          <aside className="blauth-privacy-notice"><span aria-hidden="true">⌁</span><p><strong>Request only what you need.</strong> Date of birth, camera data, and biometric information are never selectable here.</p></aside>
+          <header className="blauth-request-header"><div><p>BLAuth Application</p><h2>{selectedVerifier.verifier}</h2></div></header>
+          <p className="blauth-request-purpose">Create an authenticated request, then hand the user off to BLAuth for biometric authentication and consent.</p>
+          <div className="blauth-input-group"><label htmlFor="developer-verifier">Demo verifier</label><select id="developer-verifier" value={verifierId} onChange={handleVerifierChange} disabled={requestState === "creating"}>{Object.entries(verifierOptions).map(([id, option]) => <option key={id} value={id}>{option.verifier}</option>)}</select></div>
+          <p className="blauth-enrollment-message">Requested attributes</p>
+          <div className="blauth-consent-list">{selectedVerifier.fieldLabels.map((field) => <div className="blauth-consent-field" key={field}><span>{field}</span><strong>Requested</strong></div>)}</div>
+          {!developerApp && <button className="blauth-continue-button" type="button" disabled={appState === "creating"} onClick={handleConnectDeveloperApp}>{appState === "creating" ? "Creating demo application..." : "Create Demo BLAuth Application"}</button>}
+          {developerApp && <p className="blauth-enrollment-message" role="status">Demo application connected for this browser session. Its API secret is held only in memory and never shown to the user.</p>}
+          {appError && <p className="blauth-field-error" role="alert">{appError}</p>}
           {!walletId && <p className="blauth-field-error" role="alert">Register an identity first to create a wallet.</p>}
-          {requestState === "creating" && <p className="blauth-enrollment-message" role="status">Creating verification request…</p>}
           {requestError && <p className="blauth-field-error" role="alert">{requestError}</p>}
-          <div className="blauth-consent-actions"><button className="blauth-back-button" type="button" onClick={() => navigate(-1)}>← Back</button><button className="blauth-continue-button" type="button" disabled={!walletId || requestState === "creating"} onClick={handleCreateRequest}>{requestState === "creating" ? "Creating…" : "Create Verification Request"} <span>→</span></button></div>
-          {createdRequest && <section className="blauth-disclosure-result" aria-live="polite"><div className="blauth-result-mark">✓</div><h2>Request Created</h2><p className="blauth-result-verifier">Request ID: {createdRequest.requestId}</p><div className="blauth-result-columns"><section><h3>Verifier</h3><p>{createdRequest.verifier}</p><h3>Requested fields</h3>{createdRequest.fieldLabels.map((field) => <p className="is-shared" key={field}>✓ {field}</p>)}</section><section><h3>Status</h3><p>Awaiting user consent</p></section></div><button className="blauth-continue-button" type="button" onClick={() => navigate(`/consent?verifier=${verifierId}`)}>Continue to Consent <span>→</span></button></section>}
+          <div className="blauth-consent-actions"><button className="blauth-back-button" type="button" onClick={() => navigate(-1)}>Back</button><button className="blauth-continue-button" type="button" disabled={!walletId || !developerApp || requestState === "creating"} onClick={handleCreateRequest}>{requestState === "creating" ? "Creating request..." : "Continue with BLAuth"}</button></div>
+          {createdRequest && <section className="blauth-disclosure-result" aria-live="polite"><h2>BLAuth request ready</h2><p className="blauth-result-verifier">A real request was created for this developer application.</p><p>Open the separate BLAuth authentication surface. The developer cannot approve consent or inspect biometric data.</p><button className="blauth-continue-button" type="button" onClick={openAuthenticationSurface}>Open BLAuth Authentication</button></section>}
+          {verificationResult && <section className="blauth-disclosure-result" aria-live="polite"><h2>Verification Result</h2>{verificationResult.verified ? Object.entries(verificationResult.data).map(([field, value]) => <p className="is-shared" key={field}>{field}: {String(value)}</p>) : <p>Nothing was approved for disclosure.</p>}</section>}
+          <section className="blauth-integration-example" aria-label="BLAuth conceptual integration example"><p>Conceptual integration</p><pre><code>{integrationSnippet}</code></pre><small>BLAuth returns only the user-approved verification assertion.</small></section>
         </article>
       </section>
     </main>

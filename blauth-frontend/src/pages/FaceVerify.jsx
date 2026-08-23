@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { compareFaceDescriptors, getFaceDescriptor, loadFaceModels } from "../services/faceRecognition";
-import { registerIdentity } from "../services/api";
+import { createBiometricCommitment, getEnrolledDescriptor } from "../services/biometricIdentity";
+import { authenticateBiometricCommitment, getWallet, registerIdentity } from "../services/api";
 
 const WALLET_ID_KEY = "blauthWalletId";
 
@@ -109,34 +110,50 @@ function FaceVerify() {
     setVerificationError("");
     try {
       const currentDescriptor = await getFaceDescriptor(video);
-      const savedDescriptor = localStorage.getItem("blauthFaceDescriptor");
-      if (!savedDescriptor) throw new Error("Your enrolled local face descriptor is missing. Return to registration to enroll again.");
-      const referenceDescriptor = JSON.parse(savedDescriptor);
+      const referenceDescriptor = await getEnrolledDescriptor();
+      if (!referenceDescriptor) throw new Error("Your enrolled local face descriptor is missing. Return to registration to enroll again.");
       const { isMatch } = compareFaceDescriptors(referenceDescriptor, currentDescriptor);
       if (!mountedRef.current) return;
       if (isMatch) {
-        setVerificationState("verified");
-
         try {
-          const savedIdentity = localStorage.getItem("blauthIdentity");
-          const identity = savedIdentity ? JSON.parse(savedIdentity) : null;
-          if (!identity) throw new Error("Local identity details are unavailable for backend registration.");
+          const biometricCommitment = await createBiometricCommitment(referenceDescriptor);
+          const savedWalletId = localStorage.getItem(WALLET_ID_KEY);
+          let hasCurrentBackendWallet = false;
 
-          const { walletId } = await registerIdentity({
-            verified: true,
-            credentials: {
-              name: identity.name,
-              studentId: identity.studentId,
-              email: identity.email,
-              phone: identity.phone,
-              dob: identity.dob,
-            },
-          });
-          localStorage.setItem(WALLET_ID_KEY, walletId);
-          if (mountedRef.current) setBackendStatus("Backend wallet registered successfully.");
+          if (savedWalletId) {
+            try {
+              await getWallet(savedWalletId);
+              hasCurrentBackendWallet = true;
+            } catch {
+              // The browser can retain an ID after local data is reset. Do not
+              // let that stale value bypass the idempotent registration flow.
+              localStorage.removeItem(WALLET_ID_KEY);
+            }
+          }
+
+          if (hasCurrentBackendWallet) {
+            const proof = await authenticateBiometricCommitment(biometricCommitment);
+            if (!proof.registered || proof.revoked) throw new Error("Blockchain biometric identity verification failed.");
+            if (mountedRef.current) setBackendStatus("Local biometric and blockchain identity verified successfully.");
+          } else {
+            const savedIdentity = localStorage.getItem("blauthIdentity");
+            const identity = savedIdentity ? JSON.parse(savedIdentity) : null;
+            if (!identity) throw new Error("Local identity details are unavailable for backend registration.");
+            const { walletId } = await registerIdentity({
+              verified: true,
+              credentials: { name: identity.name, studentId: identity.studentId, email: identity.email, phone: identity.phone, dob: identity.dob },
+              biometricCommitment,
+            });
+            localStorage.setItem(WALLET_ID_KEY, walletId);
+            if (mountedRef.current) setBackendStatus("Backend wallet and blockchain biometric commitment registered successfully.");
+          }
+          if (mountedRef.current) setVerificationState("verified");
         } catch (error) {
           console.error("Backend identity registration failed:", error);
-          if (mountedRef.current) setBackendStatus(`Backend registration unavailable: ${error.message}. Your local identity remains available.`);
+          if (mountedRef.current) {
+            setVerificationState("failed");
+            setVerificationError("Local biometric matched, but blockchain identity verification could not be completed.");
+          }
         }
       } else {
         setVerificationState("failed");

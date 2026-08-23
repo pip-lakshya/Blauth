@@ -7,7 +7,7 @@ function getErrorMessage(responseBody, status) {
   return `Backend request failed (${status}).`;
 }
 
-export async function registerIdentity({ verified, credentials }) {
+export async function registerIdentity({ verified, credentials, biometricCommitment }) {
   const requestBody = {
     verified,
     credentials: {
@@ -17,6 +17,7 @@ export async function registerIdentity({ verified, credentials }) {
       phone: credentials?.phone,
       dob: credentials?.dob,
     },
+    biometricCommitment,
   };
 
   const response = await fetch(`${API_BASE_URL}/identity/register`, {
@@ -33,6 +34,17 @@ export async function registerIdentity({ verified, credentials }) {
     throw new Error("Backend registration did not return a wallet ID.");
   }
 
+  return responseBody;
+}
+
+export async function authenticateBiometricCommitment(biometricCommitment) {
+  const response = await fetch(`${API_BASE_URL}/identity/authenticate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ biometricCommitment }),
+  });
+  const responseBody = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getErrorMessage(responseBody, response.status));
   return responseBody;
 }
 
@@ -85,6 +97,36 @@ export async function createVerificationRequest({ walletId, verifierId, requeste
     throw new Error("Backend verification request did not return a request ID.");
   }
 
+  return responseBody;
+}
+
+export async function createDeveloperApp({ name }) {
+  const response = await fetch(`${API_BASE_URL}/developer/apps`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  const responseBody = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getErrorMessage(responseBody, response.status));
+  if (!responseBody?.appId || !responseBody?.apiKey || !responseBody?.apiSecret) {
+    throw new Error("Backend developer application creation response is invalid.");
+  }
+  return responseBody;
+}
+
+export async function createDeveloperVerificationRequest({ walletId, requestedFields, apiKey, apiSecret }) {
+  const response = await fetch(`${API_BASE_URL}/developer/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-BLAuth-API-Key": apiKey,
+      "X-BLAuth-API-Secret": apiSecret,
+    },
+    body: JSON.stringify({ walletId, requestedFields }),
+  });
+  const responseBody = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(getErrorMessage(responseBody, response.status));
+  if (!responseBody?.requestId) throw new Error("Backend developer verification did not return a request ID.");
   return responseBody;
 }
 

@@ -1,9 +1,10 @@
-function createWallet({ walletId, credentials }) {
+function createWallet({ walletId, credentials, biometricCommitment }) {
   return {
     walletId,
     credentials,
     createdAt: new Date().toISOString(),
     disclosureHistory: [],
+    ...(biometricCommitment ? { biometricCommitment } : {}),
   };
 }
 

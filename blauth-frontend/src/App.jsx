@@ -9,6 +9,7 @@ import VerifierAge from "./pages/VerifierAge";
 import VerifierCollege from "./pages/VerifierCollege";
 import DisclosureHistory from "./pages/DisclosureHistory";
 import DeveloperDashboard from "./pages/DeveloperDashboard";
+import AuthOverlay from "./pages/AuthOverlay";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/verify-age" element={<VerifierAge />} />
         <Route path="/history" element={<DisclosureHistory />} />
         <Route path="/developer" element={<DeveloperDashboard />} />
+        <Route path="/authenticate" element={<AuthOverlay />} />
       </Routes>
     </BrowserRouter>
   );

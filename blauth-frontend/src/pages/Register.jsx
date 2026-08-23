@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getFaceDescriptor, loadFaceModels } from "../services/faceRecognition";
+import { saveEnrolledDescriptor } from "../services/biometricIdentity";
 
 const initialFormData = { name: "", email: "", college: "", studentId: "", dob: "", phone: "" };
 const fields = [
@@ -95,7 +96,7 @@ function Register() {
     setEnrollmentMessage("Creating your local face descriptor…");
     try {
       const descriptor = await getFaceDescriptor(videoRef.current);
-      localStorage.setItem("blauthFaceDescriptor", JSON.stringify(descriptor));
+      await saveEnrolledDescriptor(descriptor);
       if (mountedRef.current) {
         setEnrollmentState("enrolled");
         setEnrollmentMessage("Face enrolled locally. No image was saved.");

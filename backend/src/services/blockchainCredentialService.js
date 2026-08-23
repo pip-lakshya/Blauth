@@ -41,7 +41,13 @@ async function registerCredentialOnChain(credentials) {
     return null;
   }
 
-  const credentialHash = createCredentialHash(credentials);
+  return registerCredentialHashOnChain(createCredentialHash(credentials));
+}
+
+async function registerCredentialHashOnChain(credentialHash) {
+  if (!isBlockchainEnabled()) {
+    return null;
+  }
   const contract = await getContract();
   const transaction = await contract.registerCredential(credentialHash);
   const receipt = await transaction.wait();
@@ -50,7 +56,10 @@ async function registerCredentialOnChain(credentials) {
 }
 
 async function getCredentialStatus(credentials) {
-  const credentialHash = createCredentialHash(credentials);
+  return getCredentialStatusByHash(createCredentialHash(credentials));
+}
+
+async function getCredentialStatusByHash(credentialHash) {
   const contract = await getContract();
   const isRegistered = await contract.isCredentialRegistered(credentialHash);
 
@@ -64,7 +73,8 @@ async function getCredentialStatus(credentials) {
     credentialHash,
     isRegistered,
     walletAddress: credential.walletAddress,
-    registeredAt: credential.registeredAt,
+    // ethers returns Solidity uint256 values as bigint, which cannot be sent in JSON.
+    registeredAt: credential.registeredAt.toString(),
     revoked: credential.revoked,
   };
 }
@@ -82,7 +92,9 @@ module.exports = {
   POLYGON_AMOY_CHAIN_ID,
   createCredentialHash,
   getCredentialStatus,
+  getCredentialStatusByHash,
   isBlockchainEnabled,
   registerCredentialOnChain,
+  registerCredentialHashOnChain,
   revokeCredentialOnChain,
 };

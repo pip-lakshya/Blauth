@@ -1,4 +1,4 @@
-const { getDisclosureHistory, getWallet, registerWallet } = require('../services/identityService');
+const { authenticateBiometricCommitment, getDisclosureHistory, getWallet, registerWallet } = require('../services/identityService');
 
 async function registerIdentity(req, res, next) {
   try {
@@ -35,6 +35,15 @@ async function getIdentityWallet(req, res, next) {
   }
 }
 
+async function authenticateIdentity(req, res, next) {
+  try {
+    const proof = await authenticateBiometricCommitment(req.body && req.body.biometricCommitment);
+    res.status(200).json(proof);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getIdentityDisclosureHistory(req, res, next) {
   try {
     const disclosures = await getDisclosureHistory(req.params.walletId);
@@ -45,4 +54,4 @@ async function getIdentityDisclosureHistory(req, res, next) {
   }
 }
 
-module.exports = { registerIdentity, getIdentityWallet, getIdentityDisclosureHistory };
+module.exports = { authenticateIdentity, registerIdentity, getIdentityWallet, getIdentityDisclosureHistory };

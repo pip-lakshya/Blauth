@@ -1,19 +1,90 @@
 const { createWallet } = require('../models/wallet');
-const { registerCredentialOnChain } = require('./blockchainCredentialService');
-const { validateRegistration } = require('../utils/validation');
+const {
+  getCredentialStatusByHash,
+  isBlockchainEnabled,
+  registerCredentialHashOnChain,
+  registerCredentialOnChain,
+} = require('./blockchainCredentialService');
+const { validateBiometricCommitment, validateRegistration } = require('../utils/validation');
 const { getWalletStore } = require('./walletStore');
 
 async function registerWallet(payload) {
-  const credentials = validateRegistration(payload);
-  const { v4: createUuid } = await import('uuid');
-  const wallet = createWallet({
-    walletId: `wallet_${createUuid()}`,
-    credentials,
-  });
+  const { credentials, biometricCommitment } = validateRegistration(payload);
+  const walletStore = getWalletStore();
 
+  if (biometricCommitment) {
+    return registerBiometricWallet({ walletStore, credentials, biometricCommitment });
+  }
+
+  const { v4: createUuid } = await import('uuid');
+  const wallet = createWallet({ walletId: `wallet_${createUuid()}`, credentials });
   const blockchainProof = await registerCredentialOnChain(credentials);
-  await getWalletStore().save(wallet);
+  await walletStore.save(wallet);
   return { wallet, blockchainProof };
+}
+
+async function registerBiometricWallet({ walletStore, credentials, biometricCommitment }) {
+  let blockchainProof = null;
+
+  if (isBlockchainEnabled()) {
+    const credentialStatus = await getCredentialStatusByHash(biometricCommitment);
+
+    if (credentialStatus.isRegistered) {
+      if (credentialStatus.revoked) {
+        const error = new Error('Biometric credential has been revoked.');
+        error.status = 409;
+        throw error;
+      }
+
+      blockchainProof = {
+        credentialHash: biometricCommitment,
+        transactionHash: null,
+      };
+    } else {
+      blockchainProof = await registerCredentialHashOnChain(biometricCommitment);
+    }
+  }
+
+  let wallet = await walletStore.findByBiometricCommitment(biometricCommitment);
+
+  // Wallet records created before commitment mapping existed can be safely linked
+  // when their complete local identity credentials match this enrollment payload.
+  if (!wallet) {
+    wallet = await walletStore.findByCredentials(credentials);
+    if (wallet && !wallet.biometricCommitment) {
+      wallet.biometricCommitment = biometricCommitment;
+      await walletStore.update(wallet);
+    } else if (wallet && wallet.biometricCommitment !== biometricCommitment) {
+      wallet = null;
+    }
+  }
+
+  if (!wallet) {
+    const { v4: createUuid } = await import('uuid');
+    wallet = createWallet({
+      walletId: `wallet_${createUuid()}`,
+      credentials,
+      biometricCommitment,
+    });
+    await walletStore.save(wallet);
+  }
+
+  return { wallet, blockchainProof };
+}
+
+async function authenticateBiometricCommitment(commitment) {
+  const biometricCommitment = validateBiometricCommitment(commitment);
+  const status = await getCredentialStatusByHash(biometricCommitment);
+  return {
+    registered: isBiometricCredentialUsable(status),
+    walletAddress: status.walletAddress,
+    registeredAt: status.registeredAt,
+    revoked: status.revoked,
+  };
+}
+
+function isBiometricCredentialUsable(status) {
+  return Boolean(status && status.isRegistered && !status.revoked);
 }
 
 async function getWallet(walletId) {
@@ -39,4 +110,4 @@ async function getDisclosureHistory(walletId) {
   }));
 }
 
-module.exports = { registerWallet, getWallet, getDisclosureHistory };
+module.exports = { registerWallet, getWallet, getDisclosureHistory, authenticateBiometricCommitment, isBiometricCredentialUsable };

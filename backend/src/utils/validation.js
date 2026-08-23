@@ -6,7 +6,7 @@ class ValidationError extends Error {
   }
 }
 
-const allowedRequestFields = new Set(['verified', 'credentials']);
+const allowedRequestFields = new Set(['verified', 'credentials', 'biometricCommitment']);
 const allowedCredentialFields = new Set(['name', 'studentId', 'email', 'phone', 'dob']);
 const supportedVerificationFields = new Set(['name', 'studentId', 'email', 'phone', 'dob', 'ageOver18']);
 
@@ -50,6 +50,13 @@ function isValidDateOfBirth(dob) {
   const today = new Date();
   const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   return date.getTime() <= todayUtc;
+}
+
+function validateBiometricCommitment(commitment) {
+  if (typeof commitment !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(commitment)) {
+    throw new ValidationError('biometricCommitment must be a bytes32 hexadecimal value.');
+  }
+  return commitment.toLowerCase();
 }
 
 function validateRegistration(payload) {
@@ -98,7 +105,12 @@ function validateRegistration(payload) {
     throw new ValidationError('dob must be a valid, non-future calendar date.');
   }
 
-  return credentials;
+  return {
+    credentials,
+    biometricCommitment: hasOwn(payload, 'biometricCommitment')
+      ? validateBiometricCommitment(payload.biometricCommitment)
+      : null,
+  };
 }
 
 function validateVerificationRequest(payload) {
@@ -185,4 +197,5 @@ module.exports = {
   validateVerificationRequest,
   validateConsent,
   validateDeveloperApp,
+  validateBiometricCommitment,
 };

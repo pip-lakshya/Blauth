@@ -29,6 +29,19 @@ class WalletStore {
     return wallets.find((wallet) => wallet.walletId === walletId) || null;
   }
 
+  async findByBiometricCommitment(biometricCommitment) {
+    const wallets = await this.readWallets();
+    return wallets.find((wallet) => wallet.biometricCommitment === biometricCommitment) || null;
+  }
+
+  async findByCredentials(credentials) {
+    const wallets = await this.readWallets();
+    const fields = ['name', 'studentId', 'email', 'phone', 'dob'];
+    return wallets.find((wallet) => fields.every(
+      (field) => wallet.credentials && wallet.credentials[field] === credentials[field],
+    )) || null;
+  }
+
   async save(wallet) {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     const wallets = await this.readWallets();
