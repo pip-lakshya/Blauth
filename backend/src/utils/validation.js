@@ -168,9 +168,21 @@ function validateConsent(payload) {
   return { requestId: payload.requestId.trim(), approvedFields };
 }
 
+function validateDeveloperApp(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new ValidationError('Request body must be a JSON object.');
+  }
+  if (typeof payload.name !== 'string' || payload.name.trim() === '') {
+    throw new ValidationError('name is required.');
+  }
+
+  return payload.name.trim();
+}
+
 module.exports = {
   ValidationError,
   validateRegistration,
   validateVerificationRequest,
   validateConsent,
+  validateDeveloperApp,
 };
