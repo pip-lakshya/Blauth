@@ -8,6 +8,7 @@ import Consent from "./pages/Consent";
 import VerifierAge from "./pages/VerifierAge";
 import VerifierCollege from "./pages/VerifierCollege";
 import DisclosureHistory from "./pages/DisclosureHistory";
+import DeveloperDashboard from "./pages/DeveloperDashboard";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/verifier/college" element={<VerifierCollege />} />
         <Route path="/verify-age" element={<VerifierAge />} />
         <Route path="/history" element={<DisclosureHistory />} />
+        <Route path="/developer" element={<DeveloperDashboard />} />
       </Routes>
     </BrowserRouter>
   );
